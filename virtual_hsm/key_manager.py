@@ -96,3 +96,27 @@ def list_keys() -> list:
     rows = conn.execute("SELECT id, type FROM keys").fetchall()
     conn.close()
     return rows
+
+def store_ca_key(pem_bytes: bytes) -> str:
+    """Store the root CA private key."""
+    conn = _get_connection()
+    # Check if exists to replace or insert
+    exists = conn.execute("SELECT id FROM keys WHERE id = 'ca-root'").fetchone()
+    if exists:
+        conn.execute("UPDATE keys SET type = ?, key = ? WHERE id = ?",
+                     ("RSA-CA", pem_bytes, "ca-root"))
+    else:
+        conn.execute("INSERT INTO keys (id, type, key) VALUES (?, ?, ?)",
+                     ("ca-root", "RSA-CA", pem_bytes))
+    conn.commit()
+    conn.close()
+    return "ca-root"
+
+def load_ca_key() -> bytes:
+    """Retrieve the CA private key bytes."""
+    record = get_key("ca-root")
+    if not record:
+        raise ValueError("CA Root key not found in HSM.")
+    _, key_bytes = record
+    return key_bytes
+
