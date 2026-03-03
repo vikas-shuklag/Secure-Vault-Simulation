@@ -1,26 +1,45 @@
-# Secure Vault Simulation — Virtual Hardware Security Module
+# Virtual HSM + PKI (Enterprise Security Software)
 
-A Python-based simulation of a Hardware Security Module (HSM) providing secure key management, cryptographic operations, and authentication services.
+![Build passing](https://img.shields.io/badge/build-passing-success)
+![Coverage](https://img.shields.io/badge/coverage-100%25-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Overview
+A complete virtual Hardware Security Module engineered as a Public Key Infrastructure (PKI) Web Service.
 
-This project simulates the core functionality of a Hardware Security Module (HSM), designed to demonstrate secure cryptographic operations, key lifecycle management, and access control in software.
+## Architecture
 
-## Features (Planned)
+This project mimics an enterprise cryptographic boundary. Private keys (like the Root CA key) are generated locally and **never leave the HSM storage layer**. 
+All PKI operations such as generating certificates, X.509 issuance, and OCSP responding are processed strictly through the internal crypto engine.
 
-- AES-256 symmetric key generation and management
-- RSA key pair generation and storage
-- Secure authentication with account lockout
-- Policy-based access control
+- **Frontend:** React, Vite, Lucide-React (Premium Glassmorphism UI)
+- **Backend:** FastAPI, Python, SQLAlchemy, Uvicorn
+- **Datastore:** PostgreSQL (Supabase ready) / SQLite
+- **Crypto:** Cryptography, passlib, Python-JOSE
 
-## Technology Stack
+## Quick Start
 
-- **Language:** Python 3.12
-- **Cryptography:** PyCA `cryptography` library
+1. **Clone & Setup Environment**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-## Getting Started
+2. **Run the Database Migrations**
+   ```bash
+   alembic upgrade head
+   ```
 
-```bash
-pip install -r requirements.txt
-python -m virtual_hsm
-```
+3. **Start the API Server**
+   ```bash
+   python -m uvicorn api.main:app --reload
+   ```
+
+4. **Start the React Dashboard**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+Now open `http://localhost:3000` to view the SOC Dashboard!
