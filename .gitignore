@@ -1,4 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+virtual_hsm/storage/keys.db
+virtual_hsm/storage/auth.json
 storage/keys.db
+storage/auth.json
