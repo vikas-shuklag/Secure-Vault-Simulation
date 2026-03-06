@@ -1,217 +1,145 @@
-# Virtual HSM — Hardware Security Module Simulation
+# Virtual HSM - Hardware Security Module Simulation
 
-A **Virtual Hardware Security Module (HSM)** that simulates real HSM behavior where cryptographic keys never leave the module boundary and applications request cryptographic operations through a secure API.
+A Python-based Virtual Hardware Security Module (HSM) for hackathon demos.
 
-> Built for security hackathon demonstrations.
-
----
+It simulates real HSM behavior where keys stay inside the module boundary and applications request cryptographic operations through an API surface.
 
 ## Overview
 
-A Hardware Security Module is a dedicated hardware device for managing cryptographic keys and performing crypto operations. This project simulates that architecture in software:
+This project demonstrates core HSM concepts in software:
 
-- **Keys never leave the HSM** — only operation results (ciphertext, signatures) are returned
-- **All crypto operations** happen inside the module boundary
-- **Policy engine** controls which operations are permitted
-- **Authentication** is required before accessing any HSM function
-- **Tkinter GUI dashboard** for easy interaction and demo
-
----
+- Keys never leave the HSM boundary
+- Encryption, decryption, signing, and verification are performed internally
+- A policy engine gates allowed operations
+- Authentication is required before HSM operations
+- A Tkinter GUI provides an interactive dashboard
 
 ## Architecture
 
+```text
+GUI (gui.py)
+   |
+   v
+HSM Core (hsm_core.py)
+   |- Authentication service (auth.py)
+   |- Policy engine (policy_engine.py)
+   |- Key manager (key_manager.py)
+   |- Crypto service (crypto_service.py)
+   |
+   v
+Secure storage (virtual_hsm/storage/keys.db, auth.json)
 ```
-GUI Dashboard (gui.py)
-        ↓
-   HSM Core (hsm_core.py)
-        ├── Authentication    (auth.py)
-        ├── Policy Engine     (policy_engine.py)
-        ├── Key Manager       (key_manager.py)
-        └── Crypto Service    (crypto_service.py)
-              ↓
-      Secure Key Store (storage/keys.db)
-```
-
----
 
 ## Project Structure
 
-```
+```text
 Virtual_HSM/
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── virtual_hsm/
-│   ├── __init__.py
-│   ├── __main__.py           # Entry point for python -m
-│   ├── main.py               # Launches GUI
-│   ├── gui.py                # Tkinter dashboard
-│   ├── hsm_core.py           # Central HSM controller
-│   ├── auth.py               # SHA-256 authentication
-│   ├── key_manager.py        # Key generation & storage
-│   ├── crypto_service.py     # AES-GCM & RSA-PSS operations
-│   ├── policy_engine.py      # Operation policy rules
-│   │
-│   └── storage/
-│       └── keys.db           # SQLite key store (auto-created)
-│
-└── .venv/
+|- README.md
+|- requirements.txt
+|- .gitignore
+|- tests/
+|  |- test_hsm_core.py
+|- virtual_hsm/
+   |- __init__.py
+   |- __main__.py
+   |- main.py
+   |- gui.py
+   |- hsm_core.py
+   |- auth.py
+   |- key_manager.py
+   |- crypto_service.py
+   |- policy_engine.py
+   |- storage/
+      |- keys.db      (runtime, ignored)
+      |- auth.json    (runtime, ignored)
 ```
-
----
 
 ## Modules
 
 | Module | Responsibility |
-|--------|---------------|
-| `gui.py` | Tkinter GUI dashboard with dark theme |
-| `auth.py` | SHA-256 password authentication |
-| `key_manager.py` | AES-256 / RSA-2048 key generation, SQLite storage |
-| `crypto_service.py` | AES-GCM encrypt/decrypt, RSA-PSS sign/verify |
-| `policy_engine.py` | Rule-based operation access control |
-| `hsm_core.py` | Central controller — enforces policy, delegates operations |
-| `main.py` | Entry point — launches the GUI |
+| --- | --- |
+| `gui.py` | Tkinter dashboard and user interactions |
+| `hsm_core.py` | Central API boundary, auth enforcement, policy checks |
+| `auth.py` | Password verification and rotation using salted PBKDF2 |
+| `key_manager.py` | AES/RSA key generation and SQLite persistence |
+| `crypto_service.py` | AES-GCM encrypt/decrypt and RSA-PSS sign/verify |
+| `policy_engine.py` | Operation allow/deny policy table |
 
----
+## Security Features
+
+- Authenticated HSM session required before operations
+- Login rate limiting in GUI (temporary lockout after repeated failures)
+- Password rotation action in admin section
+- AES-256-GCM for encryption/decryption
+- RSA-2048 with PSS + SHA-256 for signatures
+- Policy-gated operations (`generate_key`, `encrypt`, `decrypt`, `sign`, `verify`, `list_keys`, `rotate_password`)
 
 ## Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/ShadowTracker13/Virtual_HSM.git
 cd Virtual_HSM
 
-# Create virtual environment
-python3 -m venv .venv
-for kali: source .venv/bin/activate
-for windows:  .venv\Scripts\Activate.ps1
-
-# Install dependencies
-pip install -r requirements.txt
+python -m venv .venv
 ```
 
----
+Activate environment:
 
-## Usage
+- Windows PowerShell:
 
-### Launching the GUI
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+- Linux/macOS:
 
 ```bash
 source .venv/bin/activate
-or 
-.venv\Scripts\Activate.ps1
-
-python3 -m virtual_hsm.main
 ```
 
-This opens the **Virtual HSM Dashboard** — a dark-themed Tkinter interface.
+Install dependencies:
 
----
+```bash
+pip install -r requirements.txt
+```
 
-### Step 1 — Authentication
+## Run
 
-When the app launches, you'll see a login screen.
+```bash
+python -m virtual_hsm
+```
 
-- Enter the default password: `admin123`
-- Click **AUTHENTICATE** or press Enter
-- On success, the dashboard loads
+Default bootstrap password: `admin123`
 
----
+## Usage Flow
 
-### Step 2 — Generate Keys
+1. Launch app and authenticate.
+2. Generate AES or RSA key IDs from the dashboard.
+3. Use AES key ID for encrypt/decrypt operations.
+4. Use RSA key ID for sign/verify operations.
+5. Use the Admin section to rotate password when needed.
 
-Use the **🔑 Key Generation** section:
+## Testing
 
-| Button | What it does |
-|--------|-------------|
-| **Generate AES Key** | Creates a 256-bit AES key inside the HSM. Returns a key ID (e.g. `aes-8fcd25653335`) |
-| **Generate RSA Key** | Creates a 2048-bit RSA key pair inside the HSM. Returns a key ID (e.g. `rsa-2338d92ef6f6`) |
+Run unit tests:
 
-> ⚠️ The key material is **never displayed**. Only the key ID is shown. Copy the key ID for later use.
+```bash
+python -m unittest discover -s tests -v
+```
 
----
+Current suite covers:
 
-### Step 3 — Encrypt / Decrypt Data
+- auth-required behavior on core operations
+- AES roundtrip
+- RSA sign/verify roundtrip
+- password rotation and re-auth behavior
 
-Use the **🔒 Encrypt / Decrypt** section:
+## Git Hygiene
 
-1. **Encrypt:**
-   - Paste your **AES Key ID** in the Key ID field
-   - Type your plaintext in the Data field
-   - Click **Encrypt**
-   - The encrypted ciphertext (base64) appears in the Output Log
+Runtime files are intentionally ignored and should never be committed:
 
-2. **Decrypt:**
-   - Paste your **AES Key ID** in the Key ID field
-   - Paste the **ciphertext** (from the Output Log) in the Data field
-   - Click **Decrypt**
-   - The original plaintext appears in the Output Log
-
----
-
-### Step 4 — Sign / Verify Data
-
-Use the **✍️ Sign / Verify** section:
-
-1. **Sign:**
-   - Paste your **RSA Key ID** in the Key ID field
-   - Type the data to sign in the Data field
-   - Click **Sign Data**
-   - The signature auto-fills the Signature field and appears in the Output Log
-
-2. **Verify:**
-   - Keep the same RSA Key ID, Data, and Signature
-   - Click **Verify Signature**
-   - A popup confirms whether the signature is **VALID** or **INVALID**
-
----
-
-### Output Log
-
-The scrollable **📋 Output Log** at the bottom shows all operation results:
-- 🔑 Key generation events
-- ✓ Successful encryptions, decryptions, signatures
-- ✗ Errors and failed verifications
-
-All results are displayed here — this is your audit trail.
-
----
-
-### Demo Workflow (Quick Reference)
-
-| Step | Action | Result |
-|------|--------|--------|
-| 1 | Launch app | Login screen appears |
-| 2 | Enter `admin123` | Dashboard loads |
-| 3 | Click **Generate AES Key** | Key ID returned (e.g. `aes-...`) |
-| 4 | Enter Key ID + plaintext → **Encrypt** | Ciphertext in Output Log |
-| 5 | Enter Key ID + ciphertext → **Decrypt** | Original plaintext recovered |
-| 6 | Click **Generate RSA Key** | Key ID returned (e.g. `rsa-...`) |
-| 7 | Enter Key ID + data → **Sign Data** | Signature generated |
-| 8 | Click **Verify Signature** | ✓ VALID confirmation |
-
----
-
-## Security Model
-
-- 🔒 **Keys never leave the HSM** — only key IDs are returned to the user
-- 🔐 **AES-256-GCM** for authenticated encryption
-- ✍️ **RSA-2048 PSS** for digital signatures
-- 🛡️ **Policy engine** prevents unauthorized operations
-- 🔑 **SQLite key store** — keys stored as BLOBs, never printed or exported
-
----
-
-## Technologies
-
-- Python 3
-- `tkinter` — GUI dashboard
-- `cryptography` — AES-GCM, RSA-PSS
-- `sqlite3` — Secure key storage
-- `hashlib` — SHA-256 authentication
-
----
+- `virtual_hsm/storage/keys.db`
+- `virtual_hsm/storage/auth.json`
 
 ## License
 
