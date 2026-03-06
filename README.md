@@ -84,7 +84,8 @@ cd Virtual_HSM
 
 # Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate
+for kali: source .venv/bin/activate
+for windows:  .venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
@@ -98,6 +99,9 @@ pip install -r requirements.txt
 
 ```bash
 source .venv/bin/activate
+or 
+.venv\Scripts\Activate.ps1
+
 python3 -m virtual_hsm.main
 ```
 

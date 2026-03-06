@@ -10,6 +10,8 @@ _ALLOWED_OPERATIONS = {
     "decrypt":       True,
     "sign":          True,
     "verify":        True,
+    "list_keys":     True,
+    "rotate_password": True,
 }
 
 

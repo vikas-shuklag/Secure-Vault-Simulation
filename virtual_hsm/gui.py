@@ -5,9 +5,8 @@ Tkinter-based dashboard for interacting with the Virtual HSM.
 
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
-import hashlib
-import sys
 import platform
+import time
 
 from virtual_hsm.hsm_core import HSMCore
 
@@ -32,8 +31,8 @@ FONT_BUTTON   = ("Courier New", 10, "bold")
 FONT_INPUT    = ("Courier New", 10)
 FONT_OUTPUT   = ("Courier New", 9)
 
-# Default password hash
-DEFAULT_HASH = hashlib.sha256("admin123".encode()).hexdigest()
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_SECONDS = 30
 
 
 def _bring_to_front(window):
@@ -66,7 +65,9 @@ class HSMApp:
         self.root.title("Virtual HSM Dashboard")
         self.root.configure(bg=BG_DARK)
         self.root.resizable(True, True)
-        self.hsm = None
+        self.hsm = HSMCore()
+        self.failed_login_attempts = 0
+        self.locked_until = 0.0
 
         # Size and center
         w, h = 760, 720
@@ -135,12 +136,13 @@ class HSMApp:
         self.pw_entry.bind("<Return>", lambda e: self._do_login())
 
         # Login button
-        tk.Button(
+        self.login_button = tk.Button(
             frame, text="  AUTHENTICATE  ", font=FONT_BUTTON,
             bg=ACCENT_BLUE, fg=BG_DARK, activebackground="#79c0ff",
             relief=tk.FLAT, padx=24, pady=8, cursor="hand2",
             command=self._do_login
-        ).pack(pady=20)
+        )
+        self.login_button.pack(pady=20)
 
         self.auth_status = tk.Label(
             frame, text="", font=FONT_LABEL, bg=BG_DARK, fg=ACCENT_RED
@@ -148,13 +150,42 @@ class HSMApp:
         self.auth_status.pack()
 
     def _do_login(self):
+        if time.monotonic() < self.locked_until:
+            wait_seconds = int(self.locked_until - time.monotonic()) + 1
+            self.auth_status.config(text=f"✗ Too many attempts. Retry in {wait_seconds}s.")
+            return
+
         pw = self.pw_entry.get()
-        if hashlib.sha256(pw.encode()).hexdigest() == DEFAULT_HASH:
-            self.hsm = HSMCore()
+        if self.hsm.login(pw):
+            self.failed_login_attempts = 0
+            self.locked_until = 0.0
             self._show_dashboard()
         else:
-            self.auth_status.config(text="✗ Invalid password. Try again.")
+            self.failed_login_attempts += 1
+            attempts_left = MAX_LOGIN_ATTEMPTS - self.failed_login_attempts
+            if attempts_left <= 0:
+                self.locked_until = time.monotonic() + LOCKOUT_SECONDS
+                self.failed_login_attempts = 0
+                self.auth_status.config(
+                    text=f"✗ Locked for {LOCKOUT_SECONDS}s after repeated failures."
+                )
+                self._set_login_controls(enabled=False)
+                self.root.after(LOCKOUT_SECONDS * 1000, self._unlock_login)
+            else:
+                self.auth_status.config(text=f"✗ Invalid password. {attempts_left} attempt(s) left.")
             self.pw_entry.delete(0, tk.END)
+
+    def _set_login_controls(self, enabled: bool):
+        state = tk.NORMAL if enabled else tk.DISABLED
+        self.pw_entry.configure(state=state)
+        self.login_button.configure(state=state)
+
+    def _unlock_login(self):
+        if time.monotonic() < self.locked_until:
+            return
+        self._set_login_controls(enabled=True)
+        self.auth_status.config(text="")
+        self.pw_entry.focus_set()
 
     # ─── Dashboard Screen ────────────────────────────────────────
 
@@ -195,7 +226,10 @@ class HSMApp:
         # ── Section 3: Signing ──
         self._build_signing_section(content, row=1, col=0, colspan=2)
 
-        # ── Section 4: Output Log ──
+        # ── Section 4: Admin Controls ──
+        self._build_admin_section(content, row=2, col=0, colspan=2)
+
+        # ── Section 5: Output Log ──
         self._build_output_section()
 
         self._log("HSM initialized. Keys are stored internally and will NEVER be exported.")
@@ -343,6 +377,45 @@ class HSMApp:
             command=self._verify
         ).pack(side=tk.LEFT)
 
+    # ── Section 4: Admin Controls ───────────────────────────────
+
+    def _build_admin_section(self, parent, row, col, colspan):
+        card = self._make_card(parent, "🛡️  Admin", row, col, colspan)
+
+        inner = tk.Frame(card, bg=BG_CARD)
+        inner.pack(fill=tk.X)
+        inner.columnconfigure(1, weight=1)
+        inner.columnconfigure(3, weight=1)
+
+        tk.Label(inner, text="Old Password:", font=FONT_LABEL, bg=BG_CARD, fg=FG_DIM).grid(
+            row=0, column=0, sticky=tk.W, padx=(0, 6)
+        )
+        self.old_password_entry = tk.Entry(
+            inner, show="*", font=FONT_INPUT, bg=BG_INPUT, fg=FG_TEXT,
+            insertbackground=FG_TEXT, relief=tk.FLAT,
+            highlightthickness=1, highlightbackground=BORDER_COLOR,
+            highlightcolor=ACCENT_BLUE
+        )
+        self.old_password_entry.grid(row=0, column=1, sticky="ew", padx=(0, 16))
+
+        tk.Label(inner, text="New Password:", font=FONT_LABEL, bg=BG_CARD, fg=FG_DIM).grid(
+            row=0, column=2, sticky=tk.W, padx=(0, 6)
+        )
+        self.new_password_entry = tk.Entry(
+            inner, show="*", font=FONT_INPUT, bg=BG_INPUT, fg=FG_TEXT,
+            insertbackground=FG_TEXT, relief=tk.FLAT,
+            highlightthickness=1, highlightbackground=BORDER_COLOR,
+            highlightcolor=ACCENT_BLUE
+        )
+        self.new_password_entry.grid(row=0, column=3, sticky="ew")
+
+        tk.Button(
+            card, text="Rotate Password", font=FONT_BUTTON,
+            bg=ACCENT_ORANGE, fg=BG_DARK, activebackground="#e3b341",
+            relief=tk.FLAT, padx=14, pady=5, cursor="hand2",
+            command=self._rotate_password
+        ).pack(anchor=tk.W, pady=(10, 0))
+
     # ── Section 4: Output Log ────────────────────────────────────
 
     def _build_output_section(self):
@@ -450,6 +523,32 @@ class HSMApp:
         except Exception as e:
             messagebox.showerror("Verification Error", str(e))
             self._log(f"Verification failed: {e}", "err")
+
+    def _rotate_password(self):
+        old_password = self.old_password_entry.get().strip()
+        new_password = self.new_password_entry.get().strip()
+
+        if not old_password or not new_password:
+            messagebox.showwarning("Input Required", "Please enter old and new password.")
+            return
+        if len(new_password) < 8:
+            messagebox.showwarning("Weak Password", "New password must be at least 8 characters.")
+            return
+
+        try:
+            changed = self.hsm.rotate_password(old_password, new_password)
+            if not changed:
+                messagebox.showerror("Password Rotation", "Old password is incorrect.")
+                self._log("Password rotation failed: old password mismatch.", "err")
+                return
+
+            self._log("Admin password rotated. Re-authentication required.", "ok")
+            messagebox.showinfo("Password Rotation", "Password updated. Please log in again.")
+            self.hsm.logout()
+            self._show_auth_screen()
+        except Exception as e:
+            messagebox.showerror("Password Rotation Error", str(e))
+            self._log(f"Password rotation failed: {e}", "err")
 
 
 def start_gui():
