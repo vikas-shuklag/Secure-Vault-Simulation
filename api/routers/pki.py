@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.deps import get_db
 from pki.pki_service import PKIService
+from pki.models import IssuedCertificate
 from virtual_hsm.key_manager import load_ca_key
 from cryptography.hazmat.primitives import serialization
 
@@ -28,6 +29,20 @@ async def get_ca_cert():
         return Response(content=ca_cert_pem, media_type="application/x-pem-file")
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/certificates")
+async def list_certificates(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """List all issued certificates from the database."""
+    certs = db.query(IssuedCertificate).order_by(IssuedCertificate.id.desc()).all()
+    return {"certificates": [{
+        "id": c.id,
+        "serial": c.serial,
+        "commonName": c.common_name,
+        "type": c.cert_type,
+        "expires": c.expires_at.strftime("%Y-%m-%d"),
+        "status": "revoked" if c.is_revoked else "active",
+        "revoke_reason": c.revoke_reason
+    } for c in certs]}
 
 @router.post("/certificates/issue")
 async def issue_certificate(
