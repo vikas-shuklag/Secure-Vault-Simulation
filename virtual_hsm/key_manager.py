@@ -23,16 +23,22 @@ def _get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.execute("""
         CREATE TABLE IF NOT EXISTS keys (
-            id   TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
-            key  BLOB NOT NULL
+            id    TEXT PRIMARY KEY,
+            type  TEXT NOT NULL,
+            key   BLOB NOT NULL,
+            label TEXT DEFAULT ''
         )
     """)
+    # Gracefully add label column if table was created before this migration
+    try:
+        conn.execute("ALTER TABLE keys ADD COLUMN label TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.commit()
     return conn
 
 
-def generate_aes_key() -> str:
+def generate_aes_key(label: str = "") -> str:
     """
     Generate a 256-bit AES key and store it in the HSM.
     Returns the key_id (the key material is NEVER exposed).
@@ -41,14 +47,14 @@ def generate_aes_key() -> str:
     key_bytes = os.urandom(32)  # 256-bit
 
     conn = _get_connection()
-    conn.execute("INSERT INTO keys (id, type, key) VALUES (?, ?, ?)",
-                 (key_id, "AES-256", key_bytes))
+    conn.execute("INSERT INTO keys (id, type, key, label) VALUES (?, ?, ?, ?)",
+                 (key_id, "AES-256", key_bytes, label))
     conn.commit()
     conn.close()
     return key_id
 
 
-def generate_rsa_key() -> str:
+def generate_rsa_key(label: str = "") -> str:
     """
     Generate a 2048-bit RSA key pair and store the private key in the HSM.
     Returns the key_id (the key material is NEVER exposed).
@@ -65,8 +71,8 @@ def generate_rsa_key() -> str:
     )
 
     conn = _get_connection()
-    conn.execute("INSERT INTO keys (id, type, key) VALUES (?, ?, ?)",
-                 (key_id, "RSA-2048", pem_bytes))
+    conn.execute("INSERT INTO keys (id, type, key, label) VALUES (?, ?, ?, ?)",
+                 (key_id, "RSA-2048", pem_bytes, label))
     conn.commit()
     conn.close()
     return key_id
@@ -89,13 +95,37 @@ def get_key(key_id: str):
 
 def list_keys() -> list:
     """
-    List all key IDs and their types stored in the HSM.
+    List all key IDs, types, and labels stored in the HSM.
     Key material is NOT included.
     """
     conn = _get_connection()
-    rows = conn.execute("SELECT id, type FROM keys").fetchall()
+    rows = conn.execute("SELECT id, type, label FROM keys").fetchall()
     conn.close()
     return rows
+
+
+def count_keys() -> int:
+    """Return the total number of keys stored in the HSM."""
+    conn = _get_connection()
+    count = conn.execute("SELECT COUNT(*) FROM keys").fetchone()[0]
+    conn.close()
+    return count
+
+
+def delete_key(key_id: str) -> bool:
+    """
+    Destroy a key from the HSM vault.
+    The CA root key is protected and cannot be deleted.
+    Returns True if deletion occurred, False if key not found.
+    """
+    if key_id == "ca-root":
+        raise PermissionError("Cannot delete the Root CA key.")
+    conn = _get_connection()
+    cursor = conn.execute("DELETE FROM keys WHERE id = ?", (key_id,))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    conn.close()
+    return deleted
 
 def store_ca_key(pem_bytes: bytes) -> str:
     """Store the root CA private key."""
