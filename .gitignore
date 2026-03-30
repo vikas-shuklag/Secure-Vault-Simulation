@@ -24,3 +24,13 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Project Temp Files
+*.sh
+*.ps1
+*.txt
+.env
+virtual_hsm/storage/
+
+# Frontend
+frontend/node_modules/
