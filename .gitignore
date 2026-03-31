@@ -1,7 +1,36 @@
-.venv/
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
 *.pyc
-virtual_hsm/storage/keys.db
-virtual_hsm/storage/auth.json
-storage/keys.db
-storage/auth.json
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Project Temp Files
+*.sh
+*.ps1
+*.txt
+.env
+virtual_hsm/storage/
+
+# Frontend
+frontend/node_modules/
