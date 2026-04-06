@@ -11,7 +11,7 @@ export default function Settings() {
   const handleDownloadRoot = async () => {
     try {
       // Using browser fetch to trigger download instead of axios
-      const response = await fetch('http://localhost:8000/api/v1/pki/ca/certificate');
+      const response = await fetch('https://virtual-hsm-api.onrender.com/api/v1/pki/ca/certificate');
       const blob = await response.blob();
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');

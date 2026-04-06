@@ -9,7 +9,7 @@ import Login from './pages/Login';
 
 // Axios instance to cleanly provide auth header to all requests
 import axios from 'axios';
-axios.defaults.baseURL = 'http://localhost:8000';
+axios.defaults.baseURL = 'https://virtual-hsm-api.onrender.com';
 
 function AppContent({ setAuthToken }) {
   const location = useLocation();

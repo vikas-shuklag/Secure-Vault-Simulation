@@ -23,7 +23,7 @@ export default function Login({ setAuthToken }) {
       formData.append('username', 'admin'); // Ignored by backend but required by OAuth2 spec
       formData.append('password', password);
 
-      const response = await axios.post('http://localhost:8000/api/v1/auth/token', formData, {
+      const response = await axios.post('https://virtual-hsm-api.onrender.com/api/v1/auth/token', formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
