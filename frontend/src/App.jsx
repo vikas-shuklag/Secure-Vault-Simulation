@@ -67,13 +67,12 @@ function AppContent({ setAuthToken }) {
 function App() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('hsm_token'));
 
-  useEffect(() => {
-    if (authToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  }, [authToken]);
+  // Synchronously configure Axios before any child components render or fetch data
+  if (authToken) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+  }
 
   if (!authToken) {
     return <Login setAuthToken={setAuthToken} />;
